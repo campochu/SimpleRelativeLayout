@@ -37,7 +37,7 @@ xmlns:app="http://schemas.android.com/apk/res/hit.campochu.ui"
 ```
 
 
-2.以上所列属性使用 **app **作为namespace，如：app:async="true"
+2.以上所列属性使用 **app**作为namespace，如：app:async="true"
 3.其它均同RelativeLayout
 
 注：ARelativeLayout作为xml根节点时建议使用async=true，作为子节点时使用async=false；
