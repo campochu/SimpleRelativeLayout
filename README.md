@@ -1,9 +1,9 @@
 ## 简介
 功能上：
-`ARelativeLayout`覆盖`RelativeLayout`除alignBaseLine外所有布局功能，并增加了水平或垂直的中线对齐，支持同步和异步两种模式进行measure；
-开启异步模式后，ARelativeLayout所有子节点均在异步线程中measure
+`AsyncRelativeLayout`覆盖`RelativeLayout`除alignBaseLine外所有布局功能，并增加了水平或垂直的中线对齐，支持同步和异步两种模式进行measure；
+开启异步模式后，AsyncRelativeLayout所有子节点均在异步线程中measure
 性能上：
-同步模式较RelativeLayout快10% ～ 30%
+同步模式较RelativeLayout快20% ～ 50%
 异步模式几乎不消耗主线程measure时间
 ## 使用
 ### 属性说明
@@ -31,13 +31,13 @@
 | async="true/false" | 是否开启异步模式 |
 
 ### 使用
-1.在xml跟节点下引入布局属性（以socialcardwidget为例）
+1.在xml跟节点下引入布局属性
 ```xml
-xmlns:flat="http://schemas.android.com/apk/res/hit.campochu.ui"
+xmlns:app="http://schemas.android.com/apk/res/hit.campochu.ui"
 ```
 
 
-2.以上所列属性使用 **flat **作为namespace，如：flat:async="true"
+2.以上所列属性使用 **app **作为namespace，如：app:async="true"
 3.其它均同RelativeLayout
 
 注：ARelativeLayout作为xml根节点时建议使用async=true，作为子节点时使用async=false；
