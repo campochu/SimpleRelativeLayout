@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<hit.campochu.ui.performance.MyRelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical">
+
+    <ImageView
+        android:id="@+id/rl_image"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:layout_alignParentRight="true"
+        android:layout_centerVertical="true"
+        android:layout_marginBottom="30dp"
+        android:layout_marginLeft="4dp"
+        android:layout_marginTop="30dp"
+        android:scaleType="centerCrop"
+        android:src="@mipmap/ic_launcher" />
+
+    <ImageView
+        android:id="@+id/rl_image_left"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:layout_alignParentLeft="true"
+        android:layout_centerVertical="true"
+        android:layout_marginBottom="30dp"
+        android:layout_marginLeft="4dp"
+        android:layout_marginTop="30dp"
+        android:scaleType="centerCrop"
+        android:src="@mipmap/ic_launcher" />
+
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_centerVertical="true"
+        android:layout_toLeftOf="@id/rl_image"
+        android:layout_toRightOf="@id/rl_image_left"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/rl_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="4dp"
+            android:ellipsize="end"
+            android:gravity="center_vertical"
+            android:includeFontPadding="false"
+            android:paddingBottom="3dp"
+            android:paddingTop="2dp"
+            android:text="hello world"
+            android:textColor="@android:color/black"
+            android:textSize="16dp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:id="@+id/rl_sub_title_logo"
+                android:layout_width="wrap_content"
+                android:layout_height="12dp"
+                android:layout_gravity="center_vertical"
+                android:layout_marginRight="3dp"
+                android:src="@mipmap/ic_launcher"
+                android:visibility="visible" />
+
+            <TextView
+                android:id="@+id/rl_sub_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:paddingBottom="1dp"
+                android:paddingTop="1dp"
+                android:text="hello world"
+                android:textColor="@android:color/black"
+                android:textSize="14dp" />
+
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/rl_third_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:text="hello world"
+            android:textColor="@android:color/black"
+            android:textSize="14dp" />
+
+    </LinearLayout>
+
+</hit.campochu.ui.performance.MyRelativeLayout>

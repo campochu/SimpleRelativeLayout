@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<hit.campochu.ui.RecommendationLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:flat="http://schemas.android.com/apk/res/hit.campochu.ui"
+    android:id="@+id/flat_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    flat:async="true">
+
+    <ImageView
+        android:id="@+id/flat_image"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:layout_marginBottom="30dp"
+        android:layout_marginLeft="4dp"
+        android:layout_marginTop="30dp"
+        android:scaleType="centerCrop"
+        android:src="@mipmap/ic_launcher"
+        flat:layout_alignParentRight="true"
+        flat:layout_centerVertical="true" />
+
+    <ImageView
+        android:id="@+id/flat_image_left"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:layout_marginBottom="30dp"
+        android:layout_marginLeft="4dp"
+        android:layout_marginTop="30dp"
+        android:scaleType="centerCrop"
+        android:src="@mipmap/ic_launcher"
+        flat:layout_alignParentLeft="true"
+        flat:layout_centerVertical="true" />
+
+    <TextView
+        android:id="@+id/fl_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="4dp"
+        android:ellipsize="end"
+        android:gravity="center_vertical"
+        android:includeFontPadding="false"
+        android:paddingBottom="3dp"
+        android:paddingTop="2dp"
+        android:text="hello world"
+        android:textColor="@android:color/black"
+        android:textSize="16dp"
+        android:textStyle="bold"
+        flat:layout_toLeftOf="@id/flat_image"
+        flat:layout_toRightOf="@id/flat_image_left" />
+
+
+    <ImageView
+        android:id="@+id/fl_sub_title_logo"
+        android:layout_width="wrap_content"
+        android:layout_height="12dp"
+        android:layout_gravity="center_vertical"
+        android:layout_marginRight="3dp"
+        android:src="@mipmap/ic_launcher"
+        android:visibility="visible"
+        flat:layout_alignVerticalCenter="@+id/fl_sub_title"
+        flat:layout_below="@id/fl_title"
+        flat:layout_toRightOf="@id/flat_image_left" />
+
+    <TextView
+        android:id="@id/fl_sub_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:includeFontPadding="false"
+        android:maxLines="1"
+        android:paddingBottom="1dp"
+        android:paddingTop="1dp"
+        android:text="hello world"
+        android:textColor="@android:color/black"
+        android:textSize="14dp"
+        flat:layout_below="@id/fl_title"
+        flat:layout_toRightOf="@id/fl_sub_title_logo" />
+
+
+    <TextView
+        android:id="@+id/fl_third_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:includeFontPadding="false"
+        android:maxLines="1"
+        android:text="hello world"
+        android:textColor="@android:color/black"
+        android:textSize="14dp"
+        flat:layout_below="@id/fl_sub_title"
+        flat:layout_toLeftOf="@id/flat_image"
+        flat:layout_toRightOf="@id/flat_image_left" />
+
+
+</hit.campochu.ui.RecommendationLayout>

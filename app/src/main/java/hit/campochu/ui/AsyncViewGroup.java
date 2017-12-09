@@ -4,6 +4,7 @@ import android.content.Context;
 import android.util.AttributeSet;
 import android.view.ViewGroup;
 
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -11,13 +12,15 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 
 public abstract class AsyncViewGroup extends ViewGroup {
-
     private boolean mEnable;
 
-    private int mWidth;
-    private int mHeight;
+    private int mMeasuredWidthSpec;
+    private int mMeasuredHeightSpec;
+    private int mCachedWidthSpec = Integer.MIN_VALUE;
+    private int mCachedHeightSpec = Integer.MIN_VALUE;
+    private static ExecutorService sAsyncExecutor;
 
-    protected volatile Async mAsync;
+    private volatile AtomicInteger mRequestCounter = new AtomicInteger(0);
 
     private Object mLock = new Object();
 
@@ -36,48 +39,26 @@ public abstract class AsyncViewGroup extends ViewGroup {
 
     protected void setEnable(boolean enable) {
         mEnable = enable;
-        if (mEnable && mAsync == null) {
-            mAsync = new Async();
-        }
     }
 
     @Override
     public void requestLayout() {
         super.requestLayout();
         if (mEnable) {
-            mAsync.mTag.incrementAndGet();
-            mAsync.post(mAsyncMeasure);
+            mRequestCounter.incrementAndGet();
+            startAsyncMeasure();
         }
     }
-
-    private Runnable mAsyncMeasure = new Runnable() {
-        @Override
-        public void run() {
-            synchronized (mLock) {
-                if (mAsync.mTag.get() == 0) {
-                    return;
-                }
-                mAsync.mTag.set(0);
-                if (mAsync.cached()) {
-                    measureInner(mAsync.mCachedWidthSpec, mAsync.mCachedHeightSpec);
-                }
-
-                if (mAsync.mTag.get() > 0) {
-                    mAsync.post(this);
-                }
-            }
-        }
-    };
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         if (mEnable) {
-            int tag = mAsync.mTag.getAndSet(0);
+            int requestCount = mRequestCounter.getAndSet(0);
             synchronized (mLock) {
-                if (tag == 0
-                        && !mAsync.cache(widthMeasureSpec, heightMeasureSpec)
-                        && !checkChange()) {
-                    setMeasuredDimension(mWidth, mHeight);
+                if (requestCount == 0
+                        && !cacheMeasureSpec(widthMeasureSpec, heightMeasureSpec)
+                        && !childrenChanged()) {
+                    setMeasuredDimension(mMeasuredWidthSpec, mMeasuredHeightSpec);
                     return;
                 }
                 measureInner(widthMeasureSpec, heightMeasureSpec);
@@ -85,55 +66,56 @@ public abstract class AsyncViewGroup extends ViewGroup {
         } else {
             measureInner(widthMeasureSpec, heightMeasureSpec);
         }
-        setMeasuredDimension(mWidth, mHeight);
+        setMeasuredDimension(mMeasuredWidthSpec, mMeasuredHeightSpec);
     }
 
     protected abstract void measureInner(int widthMeasureSpec, int heightMeasureSpec);
 
-    protected final void setMeasured(int width, int height) {
-        mWidth = width;
-        mHeight = height;
+    protected abstract boolean childrenChanged();
+
+    protected final void setMeasureResult(int widthSpec, int heightSpec) {
+        mMeasuredWidthSpec = widthSpec;
+        mMeasuredHeightSpec = heightSpec;
     }
 
-    protected abstract boolean checkChange();
+    private void startAsyncMeasure() {
+        if (sAsyncExecutor != null && !sAsyncExecutor.isShutdown()) {
+            sAsyncExecutor.execute(mAsyncMeasure);
+        }
+    }
 
-    private static class Async {
-
-        private static AsyncThread sAsyncThread;
-
-        private int mCachedWidthSpec = Integer.MIN_VALUE;
-        private int mCachedHeightSpec = Integer.MIN_VALUE;
-
-        private volatile AtomicInteger mTag = new AtomicInteger(0);
-
-        public Async() {
-            if (sAsyncThread == null) {
-                sAsyncThread = new AsyncThread("flat_layout_async");
-                sAsyncThread.start();
+    private Runnable mAsyncMeasure = new Runnable() {
+        @Override
+        public void run() {
+            synchronized (mLock) {
+                if (mRequestCounter.get() == 0) {
+                    return;
+                }
+                mRequestCounter.set(0);
+                if (isMeasureSpecCached()) {
+                    measureInner(mCachedWidthSpec, mCachedHeightSpec);
+                }
+                if (mRequestCounter.get() > 0) {
+                    startAsyncMeasure();
+                }
             }
         }
+    };
 
-        public boolean cache(int widthSpec, int heightSpec) {
-            int oldWidth = mCachedWidthSpec;
-            int oldHeight = mCachedHeightSpec;
-            mCachedWidthSpec = widthSpec;
-            mCachedHeightSpec = heightSpec;
-            return oldWidth != widthSpec || oldHeight != heightSpec;
-        }
 
-        public boolean cached() {
-            return mCachedWidthSpec != Integer.MIN_VALUE && mCachedHeightSpec != Integer.MIN_VALUE;
-        }
-
-        public void post(Runnable task) {
-            sAsyncThread.post(task);
-        }
+    public boolean cacheMeasureSpec(int widthSpec, int heightSpec) {
+        int oldWidth = mCachedWidthSpec;
+        int oldHeight = mCachedHeightSpec;
+        mCachedWidthSpec = widthSpec;
+        mCachedHeightSpec = heightSpec;
+        return oldWidth != widthSpec || oldHeight != heightSpec;
     }
 
-    public void setGuessMeasure(int widthSpec, int heightSpec) {
-        if (mAsync != null) {
-            mAsync.cache(widthSpec, heightSpec);
-        }
+    public boolean isMeasureSpecCached() {
+        return mCachedWidthSpec != Integer.MIN_VALUE && mCachedHeightSpec != Integer.MIN_VALUE;
     }
 
+    public static void setAsyncExecutor(ExecutorService asyncExecutor) {
+        sAsyncExecutor = asyncExecutor;
+    }
 }

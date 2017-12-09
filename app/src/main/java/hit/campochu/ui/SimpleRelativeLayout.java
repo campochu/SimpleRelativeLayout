@@ -6,40 +6,33 @@ import android.graphics.Rect;
 import android.util.AttributeSet;
 import android.util.LongSparseArray;
 import android.util.SparseArray;
-import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.RelativeLayout;
-
-import hit.campochu.ui.performance.PerformanceLogger;
 
 /**
  * Created by ckb on 17/10/19.
  */
 
-public class AsyncRelativeLayout extends AsyncViewGroup {
+public class SimpleRelativeLayout extends AsyncViewGroup {
 
     public static final int ABOVE = 0;
     public static final int BELOW = 1;
     public static final int ALIGN_TOP = 2;
     public static final int ALIGN_BOTTOM = 3;
-
     public static final int LEFT_OF = 4;
     public static final int RIGHT_OF = 5;
     public static final int ALIGN_LEFT = 6;
     public static final int ALIGN_RIGHT = 7;
-
     public static final int ALIGN_PARENT_TOP = 8;
     public static final int ALIGN_PARENT_BOTTOM = 9;
     public static final int ALIGN_PARENT_LEFT = 10;
     public static final int ALIGN_PARENT_RIGHT = 11;
-
     public static final int ALIGN_VERTICAL_CENTER = 12;
     public static final int ALIGN_HORIZONTAL_CENTER = 13;
     public static final int CENTER_VERTICAL = 14;
     public static final int CENTER_HORIZONTAL = 15;
     public static final int CENTER_IN_PARENT = 16;
-
     private static final int RULE_SIZE = 17;
 
     private static final int[] LAYOUT_RULES = new int[]{
@@ -59,14 +52,10 @@ public class AsyncRelativeLayout extends AsyncViewGroup {
     };
 
     // 依赖有向图
-    // 如：A leftOf B
     // key -> A.id（前32位）＋ LEFT_OF（后32位）
     // value -> B.id
     private final LongSparseArray<Integer> mGraph = new LongSparseArray<Integer>();
 
-    // 所有childView，快速查找
-    // key -> View.id
-    // value -> View
     private final SparseArray<View> mViews = new SparseArray<View>();
 
     private volatile View[] mChildViews;
@@ -75,56 +64,23 @@ public class AsyncRelativeLayout extends AsyncViewGroup {
     private volatile View[] mVerticalSortedViews;
     private volatile View[] mGravitySortedViews;
 
-    private int mGravity = Gravity.START | Gravity.TOP;
-
-    private final Rect mInnerBounds = new Rect();
-    private final Rect mSelfBounds = new Rect();
-
-    public AsyncRelativeLayout(Context context) {
+    public SimpleRelativeLayout(Context context) {
         this(context, null);
     }
 
-    public AsyncRelativeLayout(Context context, AttributeSet attrs) {
+    public SimpleRelativeLayout(Context context, AttributeSet attrs) {
         this(context, attrs, 0);
     }
 
-    public AsyncRelativeLayout(Context context, AttributeSet attrs, int defStyleAttr) {
+    public SimpleRelativeLayout(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         initFromAttr(context, attrs, defStyleAttr);
     }
 
     protected void initFromAttr(Context context, AttributeSet attrs, int defStyleAttr) {
-        final TypedArray a = context.obtainStyledAttributes(attrs, R.styleable.AsyncRelativeLayout_Layout, defStyleAttr, 0);
-        mGravity = a.getInt(R.styleable.AsyncRelativeLayout_Layout_gravity, mGravity);
-        setEnable(a.getBoolean(R.styleable.AsyncRelativeLayout_Layout_async, false));
+        final TypedArray a = context.obtainStyledAttributes(attrs, R.styleable.SimpleRelativeLayout, defStyleAttr, 0);
+        setEnable(a.getBoolean(R.styleable.SimpleRelativeLayout_async, false));
         a.recycle();
-    }
-
-    public int getGravity() {
-        return mGravity;
-    }
-
-    public void setGravity(int gravity) {
-        if (mGravity != gravity) {
-            if ((gravity & Gravity.RELATIVE_HORIZONTAL_GRAVITY_MASK) == 0) {
-                gravity |= Gravity.START;
-            }
-
-            if ((gravity & Gravity.VERTICAL_GRAVITY_MASK) == 0) {
-                gravity |= Gravity.TOP;
-            }
-
-            mGravity = gravity;
-            requestLayout();
-        }
-    }
-
-
-    @Override
-    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        PerformanceLogger.get("FL_Measure").start();
-        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-        PerformanceLogger.get("FL_Measure").end();
     }
 
     @Override
@@ -132,165 +88,100 @@ public class AsyncRelativeLayout extends AsyncViewGroup {
 
         final int count = getChildCount();
 
-        if (checkChange()) {
+        if (childrenChanged()) {
             buildGraphAndSort();
         }
 
-        int rootCount = mSortedRootViews == null ? 0 : mSortedRootViews.length;
-        int remainCount = count - rootCount;
-
-        View[] children = mChildViews;
         View[] rootSorted = mSortedRootViews;
         View[] horizontalSorted = mHorizontalSortedViews;
         View[] verticalSorted = mVerticalSortedViews;
         View[] gravitySorted = mGravitySortedViews;
 
-        int myWidth = -1, myHeight = -1;
-        int width = 0, height = 0;
+        int width = 0;
+        int height = 0;
 
         final int widthMode = MeasureSpec.getMode(widthMeasureSpec);
         final int heightMode = MeasureSpec.getMode(heightMeasureSpec);
         final int widthSize = MeasureSpec.getSize(widthMeasureSpec);
         final int heightSize = MeasureSpec.getSize(heightMeasureSpec);
 
-        if (widthMode != MeasureSpec.UNSPECIFIED) {
-            myWidth = widthSize;
-        }
-
-        if (heightMode != MeasureSpec.UNSPECIFIED) {
-            myHeight = heightSize;
-        }
-
         if (widthMode == MeasureSpec.EXACTLY) {
-            width = myWidth;
+            width = widthSize;
         }
 
         if (heightMode == MeasureSpec.EXACTLY) {
-            height = myHeight;
+            height = heightSize;
         }
-
-        int gravity = mGravity & Gravity.RELATIVE_HORIZONTAL_GRAVITY_MASK;
-        final boolean horizontalGravity = gravity != Gravity.START && gravity != 0;
-
-        gravity = mGravity & Gravity.VERTICAL_GRAVITY_MASK;
-        final boolean verticalGravity = gravity != Gravity.TOP && gravity != 0;
-
-        int left = Integer.MAX_VALUE;
-        int top = Integer.MAX_VALUE;
-        int right = Integer.MIN_VALUE;
-        int bottom = Integer.MIN_VALUE;
 
         final boolean isWrapContentWidth = widthMode != MeasureSpec.EXACTLY;
         final boolean isWrapContentHeight = heightMode != MeasureSpec.EXACTLY;
+
+        int rootCount = rootSorted == null ? 0 : rootSorted.length;
+        int remainCount = count - rootCount;
 
         // 根节点 measure
         for (int i = 0; i < rootCount; ++i) {
             View child = rootSorted[i];
             if (child.getVisibility() != GONE) {
                 LayoutParams lp = (LayoutParams) child.getLayoutParams();
-                applyHorizontalChildRules(lp, getId(child), myWidth);
-                applyVerticalChildRules(lp, getId(child), myHeight);
-                measureChild(child, lp, myWidth, myHeight);
+                applyHorizontalChildRules(lp, getId(child), widthSize);
+                applyVerticalChildRules(lp, getId(child), heightSize);
+                measureChild(child, lp, widthSize, heightSize);
                 positionHorizontalChild(child, lp);
                 positionVerticalChild(child, lp);
-            }
-        }
-
-        // 水平垂直的环形依赖 measure
-        if (remainCount > 0) {
-            if (horizontalSorted != null) {
-                for (int i = 0; i < remainCount; ++i) {
-                    View child = horizontalSorted[i];
-                    if (child.getVisibility() != GONE) {
-                        LayoutParams lp = (LayoutParams) child.getLayoutParams();
-                        applyHorizontalChildRules(lp, getId(child), myWidth);
-                        measureChildHorizontal(child, lp, myWidth, myHeight);
-                        positionHorizontalChild(child, lp);
-                    }
-                }
-            }
-            if (verticalSorted != null) {
-                for (int i = 0; i < remainCount; ++i) {
-                    View child = verticalSorted[i];
-                    if (child.getVisibility() != GONE) {
-                        LayoutParams lp = (LayoutParams) child.getLayoutParams();
-                        applyVerticalChildRules(lp, getId(child), myHeight);
-                        measureChild(child, lp, myWidth, myHeight);
-                        positionVerticalChild(child, lp);
-                    }
-                }
-            }
-        }
-
-        // 自身大小和内边框
-        for (int i = 0; i < count; ++i) {
-            final View child = children[i];
-            if (child.getVisibility() != GONE) {
-                LayoutParams lp = (LayoutParams) child.getLayoutParams();
                 if (isWrapContentWidth) {
                     width = Math.max(width, lp.mRight + lp.rightMargin);
                 }
                 if (isWrapContentHeight) {
                     height = Math.max(height, lp.mBottom + lp.bottomMargin);
                 }
-                left = Math.min(left, lp.mLeft - lp.leftMargin);
-                top = Math.min(top, lp.mTop - lp.topMargin);
-                right = Math.max(right, lp.mRight + lp.rightMargin);
-                bottom = Math.max(bottom, lp.mBottom + lp.bottomMargin);
             }
         }
-        // 自身宽
+
+        // 水平垂直的环形依赖 measure
+        if (remainCount > 0) {
+            for (int i = 0; i < remainCount; ++i) {
+                View child = horizontalSorted[i];
+                if (child.getVisibility() != GONE) {
+                    LayoutParams lp = (LayoutParams) child.getLayoutParams();
+                    applyHorizontalChildRules(lp, getId(child), widthSize);
+                    measureChildHorizontal(child, lp, widthSize, heightSize);
+                    positionHorizontalChild(child, lp);
+                }
+            }
+            for (int i = 0; i < remainCount; ++i) {
+                View child = verticalSorted[i];
+                if (child.getVisibility() != GONE) {
+                    LayoutParams lp = (LayoutParams) child.getLayoutParams();
+                    applyVerticalChildRules(lp, getId(child), heightSize);
+                    measureChild(child, lp, widthSize, heightSize);
+                    positionVerticalChild(child, lp);
+                    if (isWrapContentWidth) {
+                        width = Math.max(width, lp.mRight + lp.rightMargin);
+                    }
+                    if (isWrapContentHeight) {
+                        height = Math.max(height, lp.mBottom + lp.bottomMargin);
+                    }
+                }
+            }
+        }
+
         if (isWrapContentWidth) {
             width += getPaddingRight();
             ViewGroup.LayoutParams lp = getLayoutParams();
-
             if (lp != null && lp.width >= 0) {
                 width = Math.max(width, lp.width);
             }
-            width = Math.max(width, getSuggestedMinimumWidth());
-            width = resolveSize(width, widthMeasureSpec);
+            width = resolveSize(Math.max(width, getSuggestedMinimumWidth()), widthMeasureSpec);
         }
 
-        // 自身高
         if (isWrapContentHeight) {
             height += getPaddingBottom();
             ViewGroup.LayoutParams lp = getLayoutParams();
             if (lp != null && lp.height >= 0) {
                 height = Math.max(height, lp.height);
             }
-
-            height = Math.max(height, getSuggestedMinimumHeight());
-            height = resolveSize(height, heightMeasureSpec);
-        }
-        // 内外边框 gravity
-        if (horizontalGravity || verticalGravity) {
-
-            final Rect selfBounds = mSelfBounds;
-            selfBounds.set(getPaddingLeft(), getPaddingTop(), width - getPaddingRight(),
-                    height - getPaddingBottom());
-
-            final Rect contentBounds = mInnerBounds;
-            Gravity.apply(mGravity, right - left, bottom - top, selfBounds, contentBounds,
-                    View.LAYOUT_DIRECTION_LTR);
-
-            final int horizontalOffset = contentBounds.left - left;
-            final int verticalOffset = contentBounds.top - top;
-            if (horizontalOffset != 0 || verticalOffset != 0) {
-                for (int i = 0; i < count; ++i) {
-                    final View child = children[i];
-                    if (child.getVisibility() != GONE) {
-                        final LayoutParams lp = (LayoutParams) child.getLayoutParams();
-                        if (horizontalGravity) {
-                            lp.mLeft += horizontalOffset;
-                            lp.mRight += horizontalOffset;
-                        }
-                        if (verticalGravity) {
-                            lp.mTop += verticalOffset;
-                            lp.mBottom += verticalOffset;
-                        }
-                    }
-                }
-            }
+            height = resolveSize(Math.max(height, getSuggestedMinimumHeight()), heightMeasureSpec);
         }
 
         // 调整 child gravity
@@ -327,11 +218,16 @@ public class AsyncRelativeLayout extends AsyncViewGroup {
             }
         }
 
-        setMeasured(width, height);
+        onFreeStyle(width, height);
+
+        setMeasureResult(width, height);
+    }
+
+    protected void onFreeStyle(int width, int height) {
     }
 
     @Override
-    protected boolean checkChange() {
+    protected boolean childrenChanged() {
         final int count = getChildCount();
         int childLen = mChildViews == null ? 0 : mChildViews.length;
         if (childLen != count) {
@@ -382,10 +278,8 @@ public class AsyncRelativeLayout extends AsyncViewGroup {
                     graph.put((long) id << 32 | (long) j & 0xffffffffL, rules[j]);
                 }
             }
-
         }
 
-        // 各种sort
         rootCount = sortChildren(children, LAYOUT_RULES, null);
         remainCount = count - rootCount;
         if (mSortedRootViews == null || mSortedRootViews.length != rootCount) {
@@ -421,8 +315,6 @@ public class AsyncRelativeLayout extends AsyncViewGroup {
         sortChildren(mGravitySortedViews, GRAVITY_RULES, null);
     }
 
-    // 剪枝法建图
-    // 返回成功排序数量
     private int sortChildren(View[] sorted, int[] rules, View[] roots) {
         int sortedIndex;
         final SparseArray<View> root = new SparseArray<View>();
@@ -708,12 +600,11 @@ public class AsyncRelativeLayout extends AsyncViewGroup {
     private int getChildMeasureSpec(int childStart, int childEnd,
                                     int childSize,
                                     int startMargin, int endMargin,
-                                    int startPadding,
-                                    int endPadding,
+                                    int startPadding, int endPadding,
                                     int mySize) {
         int childSpecMode = 0;
         int childSpecSize = 0;
-        // AsyncRelativeLayout 大小不确认
+        // SimpleRelativeLayout 大小不确认
         if (mySize < 0) {
             // 通过rule已算出大小
             if (childStart != -1 && childEnd != -1) {
@@ -806,7 +697,6 @@ public class AsyncRelativeLayout extends AsyncViewGroup {
 
     @Override
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
-        PerformanceLogger.get("FL_Layout").start();
         final int count = getChildCount();
         for (int i = 0; i < count; ++i) {
             View child = getChildAt(i);
@@ -815,7 +705,11 @@ public class AsyncRelativeLayout extends AsyncViewGroup {
                 child.layout(lp.mLeft, lp.mTop, lp.mRight, lp.mBottom);
             }
         }
-        PerformanceLogger.get("FL_Layout").end();
+    }
+
+    private static int getId(View v) {
+        int id = v.getId();
+        return id > 0 ? id : v.hashCode();
     }
 
     @Override
@@ -850,96 +744,94 @@ public class AsyncRelativeLayout extends AsyncViewGroup {
 
     @Override
     public CharSequence getAccessibilityClassName() {
-        return AsyncRelativeLayout.class.getName();
+        return SimpleRelativeLayout.class.getName();
     }
-
-    private static int getId(View v) {
-        int id = v.getId();
-        return id > 0 ? id : v.hashCode();
-    }
-
 
     public static class LayoutParams extends ViewGroup.MarginLayoutParams {
 
         private int mPrivateFlag = 0;
         private int[] mRules = new int[RULE_SIZE];
-        private int mLeft, mTop, mRight, mBottom;
+        public int mLeft, mTop, mRight, mBottom;
 
         private boolean mRulesChanged = false;
 
         public LayoutParams(Context c, AttributeSet attrs) {
             super(c, attrs);
+
             final int[] rules = mRules;
-            TypedArray a = c.obtainStyledAttributes(attrs, R.styleable.AsyncRelativeLayout_Layout);
+
+            TypedArray a = c.obtainStyledAttributes(attrs, R.styleable.SimpleRelativeLayout);
+
             final int count = a.getIndexCount();
+
             for (int i = 0; i < count; ++i) {
                 int attr = a.getIndex(i);
 
-                if (attr == R.styleable.AsyncRelativeLayout_Layout_layout_above) {
+                if (attr == R.styleable.SimpleRelativeLayout_layout_above) {
                     rules[ABOVE] = a.getResourceId(attr, 0);
                     mPrivateFlag |= 1 << ABOVE;
-                } else if (attr == R.styleable.AsyncRelativeLayout_Layout_layout_below) {
+                } else if (attr == R.styleable.SimpleRelativeLayout_layout_below) {
                     rules[BELOW] = a.getResourceId(attr, 0);
                     mPrivateFlag |= 1 << BELOW;
-                } else if (attr == R.styleable.AsyncRelativeLayout_Layout_layout_alignTop) {
+                } else if (attr == R.styleable.SimpleRelativeLayout_layout_alignTop) {
                     rules[ALIGN_TOP] = a.getResourceId(attr, 0);
                     mPrivateFlag |= 1 << ALIGN_TOP;
-                } else if (attr == R.styleable.AsyncRelativeLayout_Layout_layout_alignBottom) {
+                } else if (attr == R.styleable.SimpleRelativeLayout_layout_alignBottom) {
                     rules[ALIGN_BOTTOM] = a.getResourceId(attr, 0);
                     mPrivateFlag |= 1 << ALIGN_BOTTOM;
-                } else if (attr == R.styleable.AsyncRelativeLayout_Layout_layout_toLeftOf) {
+                } else if (attr == R.styleable.SimpleRelativeLayout_layout_toLeftOf) {
                     rules[LEFT_OF] = a.getResourceId(attr, 0);
                     mPrivateFlag |= 1 << LEFT_OF;
-                } else if (attr == R.styleable.AsyncRelativeLayout_Layout_layout_toRightOf) {
+                } else if (attr == R.styleable.SimpleRelativeLayout_layout_toRightOf) {
                     rules[RIGHT_OF] = a.getResourceId(attr, 0);
                     mPrivateFlag |= 1 << RIGHT_OF;
-                } else if (attr == R.styleable.AsyncRelativeLayout_Layout_layout_alignLeft) {
+                } else if (attr == R.styleable.SimpleRelativeLayout_layout_alignLeft) {
                     rules[ALIGN_LEFT] = a.getResourceId(attr, 0);
                     mPrivateFlag |= 1 << ALIGN_LEFT;
-                } else if (attr == R.styleable.AsyncRelativeLayout_Layout_layout_alignRight) {
+                } else if (attr == R.styleable.SimpleRelativeLayout_layout_alignRight) {
                     rules[ALIGN_RIGHT] = a.getResourceId(attr, 0);
                     mPrivateFlag |= 1 << ALIGN_RIGHT;
-                } else if (attr == R.styleable.AsyncRelativeLayout_Layout_layout_alignParentTop) {
+                } else if (attr == R.styleable.SimpleRelativeLayout_layout_alignParentTop) {
                     rules[ALIGN_PARENT_TOP] = a.getBoolean(attr, false) ? 1 : 0;
                     if (rules[ALIGN_PARENT_TOP] > 0) {
                         mPrivateFlag |= 1 << ALIGN_PARENT_TOP;
                     }
-                } else if (attr == R.styleable.AsyncRelativeLayout_Layout_layout_alignParentBottom) {
+                } else if (attr == R.styleable.SimpleRelativeLayout_layout_alignParentBottom) {
                     rules[ALIGN_PARENT_BOTTOM] = a.getBoolean(attr, false) ? 1 : 0;
                     if (rules[ALIGN_PARENT_BOTTOM] > 0) {
                         mPrivateFlag |= 1 << ALIGN_PARENT_BOTTOM;
                     }
-                } else if (attr == R.styleable.AsyncRelativeLayout_Layout_layout_alignParentLeft) {
+                } else if (attr == R.styleable.SimpleRelativeLayout_layout_alignParentLeft) {
                     rules[ALIGN_PARENT_LEFT] = a.getBoolean(attr, false) ? 1 : 0;
                     if (rules[ALIGN_PARENT_LEFT] > 0) {
                         mPrivateFlag |= 1 << ALIGN_PARENT_LEFT;
                     }
-                } else if (attr == R.styleable.AsyncRelativeLayout_Layout_layout_alignParentRight) {
+                } else if (attr == R.styleable.SimpleRelativeLayout_layout_alignParentRight) {
                     rules[ALIGN_PARENT_RIGHT] = a.getBoolean(attr, false) ? 1 : 0;
                     if (rules[ALIGN_PARENT_RIGHT] > 0) {
                         mPrivateFlag |= 1 << ALIGN_PARENT_RIGHT;
                     }
-                } else if (attr == R.styleable.AsyncRelativeLayout_Layout_layout_alignVerticalCenter) {
+                } else if (attr == R.styleable.SimpleRelativeLayout_layout_alignVerticalCenter) {
                     rules[ALIGN_VERTICAL_CENTER] = a.getResourceId(attr, 0);
                     if (rules[ALIGN_VERTICAL_CENTER] > 0) {
                         mPrivateFlag |= 1 << ALIGN_VERTICAL_CENTER;
                     }
-                } else if (attr == R.styleable.AsyncRelativeLayout_Layout_layout_alignHorizontalCenter) {
+                } else if (attr == R.styleable.SimpleRelativeLayout_layout_alignHorizontalCenter) {
                     rules[ALIGN_HORIZONTAL_CENTER] = a.getResourceId(attr, 0);
                     if (rules[ALIGN_HORIZONTAL_CENTER] > 0) {
                         mPrivateFlag |= 1 << ALIGN_HORIZONTAL_CENTER;
                     }
-                } else if (attr == R.styleable.AsyncRelativeLayout_Layout_layout_centerVertical) {
+                } else if (attr == R.styleable.SimpleRelativeLayout_layout_centerVertical) {
                     rules[CENTER_VERTICAL] = a.getBoolean(attr, false) ? 1 : 0;
                     if (rules[CENTER_VERTICAL] > 0) {
                         mPrivateFlag |= 1 << CENTER_VERTICAL;
                     }
-                } else if (attr == R.styleable.AsyncRelativeLayout_Layout_layout_centerHorizontal) {
+                } else if (attr == R.styleable.SimpleRelativeLayout_layout_centerHorizontal) {
                     rules[CENTER_HORIZONTAL] = a.getBoolean(attr, false) ? 1 : 0;
                     if (rules[CENTER_HORIZONTAL] > 0) {
                         mPrivateFlag |= 1 << CENTER_HORIZONTAL;
                     }
-                } else if (attr == R.styleable.AsyncRelativeLayout_Layout_layout_centerInParent) {
+                } else if (attr == R.styleable.SimpleRelativeLayout_layout_centerInParent) {
                     rules[CENTER_IN_PARENT] = a.getBoolean(attr, false) ? 1 : 0;
                     if (rules[CENTER_IN_PARENT] > 0) {
                         mPrivateFlag |= 1 << CENTER_IN_PARENT;
@@ -947,6 +839,7 @@ public class AsyncRelativeLayout extends AsyncViewGroup {
                 }
             }
             mRulesChanged = true;
+
             a.recycle();
         }
 
@@ -991,6 +884,77 @@ public class AsyncRelativeLayout extends AsyncViewGroup {
             return mRules;
         }
 
+    }
+
+    protected final void layoutVerticalCenter(Rect outFrame, int... ids) {
+        View[] views = layoutIdsToViews(ids);
+        Rect frame = layoutFrame(views);
+        int offset = (outFrame.height() - frame.height()) / 2;
+        layoutOffsetVertical(offset, views);
+    }
+
+    protected final void layoutHorizontalCenter(Rect outFrame, int... ids) {
+        View[] views = layoutIdsToViews(ids);
+        Rect frame = layoutFrame(views);
+        int offset = (outFrame.width() - frame.width()) / 2;
+        layoutOffsetHorizontal(offset, views);
+    }
+
+    protected final void layoutCenter(Rect outFrame, int... ids) {
+        View[] views = layoutIdsToViews(ids);
+        Rect frame = layoutFrame(views);
+        int topOffset = (outFrame.width() - frame.width()) / 2;
+        int leftOffset = (outFrame.height() - frame.height()) / 2;
+        layoutOffsetCenter(topOffset, leftOffset, views);
+    }
+
+    protected final void layoutOffsetVertical(int offset, View... views) {
+        for (View v : views) {
+            SimpleRelativeLayout.LayoutParams lp = (SimpleRelativeLayout.LayoutParams) v.getLayoutParams();
+            lp.mTop = lp.mTop + offset;
+            lp.mBottom = lp.mBottom + offset;
+        }
+    }
+
+    protected final void layoutOffsetHorizontal(int offset, View... views) {
+        for (View v : views) {
+            SimpleRelativeLayout.LayoutParams lp = (SimpleRelativeLayout.LayoutParams) v.getLayoutParams();
+            lp.mLeft = lp.mLeft + offset;
+            lp.mRight = lp.mRight + offset;
+        }
+    }
+
+    protected final void layoutOffsetCenter(int topOffset, int leftOffset, View... views) {
+        for (View v : views) {
+            SimpleRelativeLayout.LayoutParams lp = (SimpleRelativeLayout.LayoutParams) v.getLayoutParams();
+            lp.mTop = lp.mTop + topOffset;
+            lp.mBottom = lp.mBottom + topOffset;
+            lp.mLeft = lp.mLeft + leftOffset;
+            lp.mRight = lp.mRight + leftOffset;
+        }
+    }
+
+    protected final Rect layoutFrame(View... views) {
+        Rect frame = new Rect();
+        for (View v : views) {
+            SimpleRelativeLayout.LayoutParams lp = (SimpleRelativeLayout.LayoutParams) v.getLayoutParams();
+            frame.top = Math.min(frame.top, lp.mTop + lp.topMargin);
+            frame.bottom = Math.max(frame.bottom, lp.mBottom + lp.bottomMargin);
+            frame.left = Math.min(frame.left, lp.mLeft + lp.leftMargin);
+            frame.right = Math.max(frame.right, lp.mRight + lp.rightMargin);
+        }
+        return frame;
+    }
+
+    private View[] layoutIdsToViews(int... ids) {
+        if (ids == null || ids.length == 0) {
+            return new View[0];
+        }
+        View[] views = new View[ids.length];
+        for (int i = 0; i < ids.length; ++i) {
+            views[i] = mViews.get(ids[i]);
+        }
+        return views;
     }
 
 }

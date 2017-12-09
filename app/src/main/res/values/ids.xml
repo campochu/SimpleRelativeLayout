@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <id name="test1">0x12345678</id>
+    <id name="test2">0x22345678</id>
+    <id name="test3">0x32345678</id>
+    <id name="test4">0x42345678</id>
+    <id name="test5">0x52345678</id>
+    <id name="test6">0x62345678</id>
+    <id name="test7">0x72345678</id>
+</resources>
